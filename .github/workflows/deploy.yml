@@ -19,12 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug Info
+      - name: Create 404.html
+        run: cp index.html 404.html
+
+      - name: Update paths
         run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Ref: ${{ github.ref }}"
+          echo "Current directory structure:"
           ls -la
+          
+          mkdir -p icons
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -33,3 +36,8 @@ jobs:
           folder: .
           clean: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post-deployment debug
+        run: |
+          echo "Deployment completed"
+          echo "Please visit: https://${{ github.repository_owner }}.github.io/pwadome"
