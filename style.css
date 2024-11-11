@@ -11,7 +11,7 @@ body {
     text-align: center;
 }
 
-/* 添加安装按钮样式 */
+/* 安装按钮样式 */
 .install-button {
     background-color: #4A90E2;
     color: white;
@@ -22,6 +22,7 @@ body {
     cursor: pointer;
     margin-top: 20px;
     transition: background-color 0.3s;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .install-button:hover {
@@ -30,4 +31,26 @@ body {
 
 .install-button:active {
     background-color: #2868A9;
+}
+
+/* iOS 安装提示样式 */
+.install-prompt {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+/* 移动设备适配 */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .install-button {
+        width: 80%;
+        max-width: 300px;
+        padding: 15px;
+    }
 } 

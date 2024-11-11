@@ -16,15 +16,28 @@
         <h1>PWA 示例</h1>
         <p>这是一个简单的 PWA 应用演示</p>
         <button id="installBtn" class="install-button" style="display: none;">安装应用</button>
+        <div id="iosInstallPrompt" class="install-prompt" style="display: none;">
+            <p>在 iOS 设备上安装：点击分享按钮，然后选择"添加到主屏幕"</p>
+        </div>
     </div>
     <script>
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
+        const iosPrompt = document.getElementById('iosInstallPrompt');
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                            window.navigator.standalone;
+
+        if (isIOS && !isStandalone) {
+            iosPrompt.style.display = 'block';
+        }
 
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             installBtn.style.display = 'block';
+            console.log('beforeinstallprompt 触发');
         });
 
         installBtn.addEventListener('click', async () => {
@@ -37,9 +50,17 @@
             }
         });
 
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+            if (e.matches) {
+                installBtn.style.display = 'none';
+                iosPrompt.style.display = 'none';
+            }
+        });
+
         window.addEventListener('appinstalled', (evt) => {
             console.log('应用已成功安装');
             installBtn.style.display = 'none';
+            iosPrompt.style.display = 'none';
         });
 
         if ('serviceWorker' in navigator) {
