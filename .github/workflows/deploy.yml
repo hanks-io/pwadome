@@ -6,38 +6,42 @@ on:
       - main
   workflow_dispatch:
 
+# 基本权限设置
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
-  deployments: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # 环境设置
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create 404.html
-        run: cp index.html 404.html
+      # 配置 GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-      - name: Update paths
+      # 准备部署文件
+      - name: Build
         run: |
-          echo "Current directory structure:"
+          echo "Preparing files for deployment..."
+          cp index.html 404.html
           ls -la
-          
-          mkdir -p icons
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      # 上传构建产物
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: .
-          clean: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          path: .
 
-      - name: Post-deployment debug
-        run: |
-          echo "Deployment completed"
-          echo "Please visit: https://${{ github.repository_owner }}.github.io/pwadome"
+      # 部署到 GitHub Pages
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
