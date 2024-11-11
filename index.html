@@ -15,14 +15,49 @@
     <div class="container">
         <h1>PWA 示例</h1>
         <p>这是一个简单的 PWA 应用演示</p>
-        <button id="installBtn" class="install-button" style="display: none;">安装应用</button>
+        
+        <!-- 安装按钮组 -->
+        <div class="button-group">
+            <button id="installBtn" class="install-button" style="display: none;">
+                <span class="icon">📱</span>
+                安装到主屏幕
+            </button>
+            
+            <button id="shareBtn" class="share-button">
+                <span class="icon">🔄</span>
+                刷新页面
+            </button>
+            
+            <button id="openNewBtn" class="open-new-button">
+                <span class="icon">🔗</span>
+                新窗口打开
+            </button>
+        </div>
+
+        <!-- iOS 安装提示 -->
         <div id="iosInstallPrompt" class="install-prompt" style="display: none;">
             <p>在 iOS 设备上安装：点击分享按钮，然后选择"添加到主屏幕"</p>
         </div>
+
+        <!-- 安装方式说明 -->
+        <div class="install-methods">
+            <h2>安装方式说明</h2>
+            <div class="method-card">
+                <h3>📱 主屏幕安装</h3>
+                <p>将应用安装到设备主屏幕，像原生应用一样使用</p>
+            </div>
+            <div class="method-card">
+                <h3>🔗 新窗口模式</h3>
+                <p>在独立窗口中打开应用，获得更好的使用体验</p>
+            </div>
+        </div>
     </div>
+
     <script>
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const openNewBtn = document.getElementById('openNewBtn');
         const iosPrompt = document.getElementById('iosInstallPrompt');
 
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -33,6 +68,7 @@
             iosPrompt.style.display = 'block';
         }
 
+        // PWA 安装处理
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -50,6 +86,17 @@
             }
         });
 
+        // 修改为刷新功能
+        shareBtn.addEventListener('click', () => {
+            window.location.href = 'https:www.baidu.com';
+        });
+
+        // 新窗口打开
+        openNewBtn.addEventListener('click', () => {
+            window.open('https:www.baidu.com', '_blank');
+        });
+
+        // 监听显示模式变化
         window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
             if (e.matches) {
                 installBtn.style.display = 'none';
