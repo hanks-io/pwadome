@@ -86,48 +86,47 @@
             }
         });
 
-        // 修改为刷新功能
+        // 修改刷新按钮的行为
         shareBtn.addEventListener('click', () => {
-            window.location.href = 'https://www.baidu.com';
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                // 通过 Service Worker 打开新页面
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'NAVIGATE',
+                    url: 'https://www.baidu.com'
+                });
+            } else {
+                // 降级处理
+                window.location.href = 'https://www.baidu.com';
+            }
         });
 
         // 修改新窗口打开的方式
         openNewBtn.addEventListener('click', () => {
-            const windowFeatures = {
-                width: 800,
-                height: 600,
-                resizable: 'yes',
-                scrollbars: 'yes',
-                status: 'no',
-                toolbar: 'no',
-                menubar: 'no',
-                location: 'no',
-                titlebar: 'no'
-            };
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                // 通过 Service Worker 打开新窗口
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'NAVIGATE',
+                    url: 'https://www.baidu.com'
+                });
+            } else {
+                // 降级处理，使用原来的窗口打开方式
+                const windowFeatures = {
+                    width: 800,
+                    height: 600,
+                    resizable: 'yes',
+                    scrollbars: 'yes',
+                    status: 'no',
+                    toolbar: 'no',
+                    menubar: 'no',
+                    location: 'no',
+                    titlebar: 'no'
+                };
 
-            // 转换特性对象为字符串
-            const featuresStr = Object.entries(windowFeatures)
-                .map(([key, value]) => `${key}=${value}`)
-                .join(',');
+                const featuresStr = Object.entries(windowFeatures)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join(',');
 
-            // 使用 window.open 打开新窗口
-            const newWindow = window.open('https://www.baidu.com', '_blank', featuresStr);
-
-            // 如果浏览器支持，修改新窗口的标题和地址栏
-            if (newWindow && 'standalone' in navigator) {
-                try {
-                    // 尝试修改标题
-                    newWindow.document.title = 'PWA Demo';
-                    
-                    // 尝试隐藏地址栏
-                    if (newWindow.navigator.standalone) {
-                        newWindow.document.documentElement.style.background = '#ffffff';
-                        newWindow.document.body.style.margin = '0';
-                        newWindow.document.body.style.height = '100vh';
-                    }
-                } catch (e) {
-                    console.log('无法修改新窗口属性:', e);
-                }
+                window.open('https://www.baidu.com', '_blank', featuresStr);
             }
         });
 
@@ -162,9 +161,21 @@
             iosPrompt.style.display = 'none';
         });
 
+        // 确保 Service Worker 已激活
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js')
-                .then(registration => console.log('ServiceWorker 注册成功'))
+                .then(registration => {
+                    console.log('ServiceWorker 注册成功');
+                    
+                    // 如果 Service Worker 未激活，等待其激活
+                    if (registration.active) {
+                        console.log('Service Worker 已激活');
+                    } else {
+                        registration.addEventListener('activate', () => {
+                            console.log('Service Worker 已激活');
+                        });
+                    }
+                })
                 .catch(error => console.log('ServiceWorker 注册失败:', error));
         }
     </script>
