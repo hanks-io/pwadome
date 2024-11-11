@@ -91,10 +91,62 @@
             window.location.href = 'https://www.baidu.com';
         });
 
-        // 新窗口打开
+        // 修改新窗口打开的方式
         openNewBtn.addEventListener('click', () => {
-            window.open('https://www.baidu.com', '_blank');
+            const windowFeatures = {
+                width: 800,
+                height: 600,
+                resizable: 'yes',
+                scrollbars: 'yes',
+                status: 'no',
+                toolbar: 'no',
+                menubar: 'no',
+                location: 'no',
+                titlebar: 'no'
+            };
+
+            // 转换特性对象为字符串
+            const featuresStr = Object.entries(windowFeatures)
+                .map(([key, value]) => `${key}=${value}`)
+                .join(',');
+
+            // 使用 window.open 打开新窗口
+            const newWindow = window.open('https://www.baidu.com', '_blank', featuresStr);
+
+            // 如果浏览器支持，修改新窗口的标题和地址栏
+            if (newWindow && 'standalone' in navigator) {
+                try {
+                    // 尝试修改标题
+                    newWindow.document.title = 'PWA Demo';
+                    
+                    // 尝试隐藏地址栏
+                    if (newWindow.navigator.standalone) {
+                        newWindow.document.documentElement.style.background = '#ffffff';
+                        newWindow.document.body.style.margin = '0';
+                        newWindow.document.body.style.height = '100vh';
+                    }
+                } catch (e) {
+                    console.log('无法修改新窗口属性:', e);
+                }
+            }
         });
+
+        // 检测是否在 PWA 模式下运行
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                     (window.navigator.standalone) || 
+                     document.referrer.includes('android-app://');
+
+        // 如果是 PWA 模式，修改当前窗口的样式
+        if (isPWA) {
+            document.documentElement.style.background = '#ffffff';
+            document.body.style.margin = '0';
+            document.body.style.height = '100vh';
+            
+            // 隐藏地址栏
+            if ('standalone' in navigator) {
+                window.scrollTo(0, 1);
+            }
+        }
 
         // 监听显示模式变化
         window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
