@@ -178,6 +178,47 @@
                 })
                 .catch(error => console.log('ServiceWorker 注册失败:', error));
         }
+
+        // 修改消息处理函数
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'HANDLE_NAVIGATION') {
+                const { url, openType } = event.data;
+                const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
+
+                try {
+                    if (openType === 'NAVIGATE') {
+                        window.location.href = frameUrl;
+                    } else if (openType === 'new-window') {
+                        const windowFeatures = {
+                            width: 800,
+                            height: 600,
+                            resizable: 'yes',
+                            scrollbars: 'yes',
+                            status: 'no',
+                            toolbar: 'no',
+                            menubar: 'no',
+                            location: 'no',
+                            titlebar: 'no'
+                        };
+
+                        const featuresStr = Object.entries(windowFeatures)
+                            .map(([key, value]) => `${key}=${value}`)
+                            .join(',');
+
+                        const newWindow = window.open(frameUrl, '_blank', featuresStr);
+                        if (!newWindow) {
+                            console.warn('弹窗被阻止');
+                            // 降级为当前窗口打开
+                            window.location.href = frameUrl;
+                        }
+                    }
+                } catch (err) {
+                    console.error('导航失败:', err);
+                    // 降级处理
+                    window.location.href = url;
+                }
+            }
+        });
     </script>
 </body>
 </html> 

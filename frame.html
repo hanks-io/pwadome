@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA View</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #toolbar {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        #toolbar button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #4A90E2;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #toolbar button:hover {
+            background: #357ABD;
+        }
+
+        #content {
+            flex: 1;
+            width: 100%;
+            height: calc(100% - 44px); /* 减去工具栏高度 */
+            border: none;
+        }
+
+        .error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            display: none;
+        }
+
+        @media (display-mode: standalone) {
+            #toolbar {
+                padding-top: env(safe-area-inset-top);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="toolbar">
+            <button onclick="goBack()">返回</button>
+            <button onclick="goHome()">首页</button>
+            <button onclick="reload()">刷新</button>
+        </div>
+        <iframe id="content" sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+    </div>
+    <div id="error" class="error-message">
+        加载失败，正在返回首页...
+    </div>
+
+    <script>
+        const content = document.getElementById('content');
+        const error = document.getElementById('error');
+
+        // 获取 URL 参数
+        const params = new URLSearchParams(window.location.search);
+        const url = params.get('url');
+
+        if (url) {
+            loadUrl(url);
+        } else {
+            goHome();
+        }
+
+        function loadUrl(url) {
+            try {
+                content.src = url;
+                content.onerror = handleError;
+                content.onload = () => {
+                    error.style.display = 'none';
+                };
+            } catch (e) {
+                handleError(e);
+            }
+        }
+
+        function handleError(e) {
+            console.error('加载失败:', e);
+            error.style.display = 'block';
+            setTimeout(goHome, 2000);
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                goHome();
+            }
+        }
+
+        function goHome() {
+            window.location.href = './';
+        }
+
+        function reload() {
+            if (content.src) {
+                content.src = content.src;
+            }
+        }
+
+        // 处理 PWA 环境
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            document.body.classList.add('standalone');
+        }
+
+        // 监听消息
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'NAVIGATE') {
+                loadUrl(event.data.url);
+            }
+        });
+    </script>
+</body>
+</html> 

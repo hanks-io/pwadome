@@ -13,90 +13,102 @@ const urlsToCache = [
 
 // 添加消息处理
 self.addEventListener('message', async event => {
-    if (!self.clients) {
-        console.error('Clients API 不可用');
-        return;
-    }
-
-    const allClients = await self.clients.matchAll({
-        type: 'window'
-    });
-
-    if (event.data && (event.data.type === 'NAVIGATE' || event.data.type === 'new-window')) {
-        try {
-            // 使用 frame.html 来加载外部页面
-            const frameUrl = `./frame.html?url=${encodeURIComponent(event.data.url)}`;
-
-            if (event.data.type === 'NAVIGATE' && allClients.length > 0) {
-                const client = allClients[0];
-                await client.navigate(frameUrl);
-                await client.focus();
-            } else if (event.data.type === 'new-window') {
-                const windowClient = await self.clients.openWindow(frameUrl);
-                if (windowClient) {
-                    await windowClient.focus();
-                }
-            }
-        } catch (err) {
-            console.error('操作失败:', err);
-            // 如果导航失败，尝试直接打开
-            if (event.data.type === 'new-window') {
-                await self.clients.openWindow(event.data.url);
-            }
+    try {
+        // 找到发送消息的客户端
+        const client = event.source;
+        if (!client) {
+            console.error('无法找到客户端');
+            return;
         }
+
+        // 发送消息回客户端
+        if (event.data && event.data.type) {
+            client.postMessage({
+                type: 'HANDLE_NAVIGATION',
+                url: event.data.url,
+                openType: event.data.type
+            });
+        }
+    } catch (err) {
+        console.error('消息处理失败:', err);
     }
 });
 
+// 安装事件
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(urlsToCache))
+            .then(cache => {
+                // 逐个缓存文件，而不是使用 addAll
+                return Promise.all(
+                    urlsToCache.map(url => {
+                        return cache.add(url).catch(err => {
+                            console.warn('缓存文件失败:', url, err);
+                            return Promise.resolve(); // 继续处理其他文件
+                        });
+                    })
+                );
+            })
+    );
+    // 立即激活
+    self.skipWaiting();
+});
+
+// 激活事件
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        Promise.all([
+            // 清理旧缓存
+            caches.keys().then(cacheNames => {
+                return Promise.all(
+                    cacheNames.map(cacheName => {
+                        if (cacheName !== CACHE_NAME) {
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            }),
+            // 立即接管客户端
+            self.clients.claim()
+        ])
     );
 });
 
+// 请求拦截
 self.addEventListener('fetch', event => {
-    // 对于跨域请求，使用 no-cors 模式
-    if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request)
-                .catch(() => caches.match('./index.html'))
-        );
-    } else {
-        event.respondWith(
-            caches.match(event.request)
-                .then(response => {
-                    if (response) {
-                        return response;
-                    }
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
 
-                    // 克隆请求，因为请求只能使用一次
-                    const fetchRequest = event.request.clone();
-
-                    // 对于跨域请求，添加 no-cors 模式
-                    const fetchOptions = {
-                        mode: 'no-cors',
-                        credentials: 'same-origin'
-                    };
-
-                    return fetch(fetchRequest, fetchOptions)
-                        .then(response => {
-                            // 检查是否是有效的响应
-                            if (!response || response.status !== 200) {
-                                return response;
-                            }
-
-                            // 克隆响应，因为响应体只能使用一次
-                            const responseToCache = response.clone();
-
-                            // 将响应添加到缓存
-                            caches.open(CACHE_NAME)
-                                .then(cache => {
-                                    cache.put(event.request, responseToCache);
-                                });
-
+                return fetch(event.request)
+                    .then(response => {
+                        // 检查是否是有效的响应
+                        if (!response || response.status !== 200) {
                             return response;
-                        });
-                })
-        );
-    }
+                        }
+
+                        // 克隆响应
+                        const responseToCache = response.clone();
+
+                        // 缓存响应
+                        caches.open(CACHE_NAME)
+                            .then(cache => {
+                                cache.put(event.request, responseToCache);
+                            })
+                            .catch(err => {
+                                console.warn('缓存响应失败:', err);
+                            });
+
+                        return response;
+                    })
+                    .catch(err => {
+                        console.error('fetch 失败:', err);
+                        // 返回离线页面或错误页面
+                        return caches.match('./index.html');
+                    });
+            })
+    );
 }); 
