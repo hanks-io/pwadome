@@ -1,15 +1,13 @@
 const CACHE_NAME = 'pwa-demo-v1';
-const BASE_PATH = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? ''
-    : '/pwadome';
+const BASE_PATH = '';
 
 const urlsToCache = [
-    `${BASE_PATH}/`,
-    `${BASE_PATH}/index.html`,
-    `${BASE_PATH}/style.css`,
-    `${BASE_PATH}/manifest.json`,
-    `${BASE_PATH}/icons/icon-192x192.svg`,
-    `${BASE_PATH}/icons/icon-512x512.svg`
+    './',
+    './index.html',
+    './style.css',
+    './manifest.json',
+    './icons/icon-192x192.svg',
+    './icons/icon-512x512.svg'
 ];
 
 self.addEventListener('install', event => {
