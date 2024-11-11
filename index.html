@@ -91,12 +91,12 @@
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 // 通过 Service Worker 打开新页面
                 navigator.serviceWorker.controller.postMessage({
-                    type: 'NAVIGATE',
+                    type: 'new-window',
                     url: 'https://www.baidu.com'
                 });
             } else {
                 // 降级处理
-                window.location.href = 'https://www.baidu.com';
+                //window.location.href = 'https://www.baidu.com';
             }
         });
 
@@ -126,7 +126,7 @@
                     .map(([key, value]) => `${key}=${value}`)
                     .join(',');
 
-                window.open('https://www.baidu.com', '_blank', featuresStr);
+                //window.open('https://www.baidu.com', '_blank', featuresStr);
             }
         });
 
