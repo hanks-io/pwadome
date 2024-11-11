@@ -23,6 +23,7 @@ self.addEventListener('message', async event => {
     });
 
     if (event.data && event.data.type === 'NAVIGATE') {
+        console.log('navigate');
         try {
 
 
@@ -42,6 +43,8 @@ self.addEventListener('message', async event => {
     }
 
     if (event.data && event.data.type === 'new-window') {
+
+        console.log('new-window');
         // 检查 Clients API 是否可用
         if (!self.clients) {
             console.error('Clients API 不可用');
