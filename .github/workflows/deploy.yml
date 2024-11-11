@@ -6,56 +6,26 @@ on:
       - main
   workflow_dispatch:
 
-# 扩展权限设置
 permissions:
   contents: write
   pages: write
   id-token: write
-  deployments: write
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 添加 enablement 参数
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      # 使用 JamesIves 的部署 action
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          enablement: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          static_site_generator: "plain"
-
-      # 添加调试信息
-      - name: Debug Info
-        run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Event: ${{ github.event_name }}"
-          echo "Current directory:"
-          pwd
-          echo "Files in directory:"
-          ls -la
-
-      - name: Build
-        run: |
-          echo "Preparing files for deployment..."
-          cp index.html 404.html
-          ls -la
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          folder: .
+          branch: gh-pages
+          clean: true
+          single-commit: true
+          git-config-name: GitHub Actions
+          git-config-email: actions@github.com
+          commit-message: "Deploy to GitHub Pages"
