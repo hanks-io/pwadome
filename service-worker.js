@@ -21,10 +21,14 @@ self.addEventListener('message', async event => {
         type: 'window'
     });
 
-    if (event.data && event.data.type === 'NAVIGATE') {
+    if (event.data && (event.data.type === 'NAVIGATE' || event.data.type === 'new-window')) {
         try {
-            // 创建一个 iframe 容器页面的 HTML
-            const iframeHTML = `
+            // 获取目标页面内容
+            const response = await fetch(event.data.url);
+            const html = await response.text();
+
+            // 创建新的 HTML 内容
+            const newHTML = `
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -32,62 +36,78 @@ self.addEventListener('message', async event => {
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>PWA View</title>
                     <style>
-                        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-                        iframe { border: none; width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
+                        body, html { 
+                            margin: 0; 
+                            padding: 0; 
+                            height: 100vh; 
+                            overflow: auto; 
+                        }
+                        #pwa-content {
+                            width: 100%;
+                            min-height: 100vh;
+                        }
+                        /* 隐藏原页面的头部等元素 */
+                        header, nav, .header, .nav, .navbar { 
+                            display: none !important; 
+                        }
                     </style>
                 </head>
                 <body>
-                    <iframe src="${event.data.url}" allow="fullscreen"></iframe>
+                    <div id="pwa-content">
+                        ${html}
+                    </div>
+                    <script>
+                        // 处理页面内的链接点击
+                        document.addEventListener('click', (e) => {
+                            if (e.target.tagName === 'A') {
+                                e.preventDefault();
+                                const url = e.target.href;
+                                window.parent.postMessage({ type: 'NAVIGATE', url }, '*');
+                            }
+                        });
+
+                        // 隐藏地址栏
+                        if ('standalone' in navigator || window.matchMedia('(display-mode: standalone)').matches) {
+                            window.scrollTo(0, 1);
+                        }
+
+                        // 移除原页面的一些元素
+                        function removeElements() {
+                            const elementsToRemove = document.querySelectorAll('header, nav, .header, .nav, .navbar');
+                            elementsToRemove.forEach(el => el.remove());
+                        }
+                        
+                        // 页面加载完成后执行清理
+                        window.addEventListener('load', removeElements);
+                        // 动态内容加载后也执行清理
+                        const observer = new MutationObserver(removeElements);
+                        observer.observe(document.body, { childList: true, subtree: true });
+                    </script>
                 </body>
                 </html>
             `;
 
             // 创建 Blob URL
-            const blob = new Blob([iframeHTML], { type: 'text/html' });
-            const iframeUrl = URL.createObjectURL(blob);
+            const blob = new Blob([newHTML], { type: 'text/html' });
+            const blobUrl = URL.createObjectURL(blob);
 
-            // 在当前窗口中导航到 iframe 容器页面
-            if (allClients.length > 0) {
+            if (event.data.type === 'NAVIGATE' && allClients.length > 0) {
+                // 在当前窗口导航
                 const client = allClients[0];
-                await client.navigate(iframeUrl);
+                await client.navigate(blobUrl);
                 await client.focus();
+            } else if (event.data.type === 'new-window') {
+                // 在新窗口打开
+                const windowClient = await self.clients.openWindow(blobUrl);
+                if (windowClient) {
+                    await windowClient.focus();
+                }
             }
-        } catch (err) {
-            console.error('导航失败:', err);
-        }
-    }
 
-    if (event.data && event.data.type === 'new-window') {
-        try {
-            // 创建新窗口并加载 iframe 容器
-            const windowClient = await self.clients.openWindow('about:blank');
-            if (windowClient) {
-                const iframeHTML = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>PWA View</title>
-                        <style>
-                            body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-                            iframe { border: none; width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
-                        </style>
-                    </head>
-                    <body>
-                        <iframe src="${event.data.url}" allow="fullscreen"></iframe>
-                    </body>
-                    </html>
-                `;
-                
-                const blob = new Blob([iframeHTML], { type: 'text/html' });
-                const iframeUrl = URL.createObjectURL(blob);
-                
-                await windowClient.navigate(iframeUrl);
-                await windowClient.focus();
-            }
+            // 清理 Blob URL
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
         } catch (err) {
-            console.error('打开新窗口失败:', err);
+            console.error('操作失败:', err);
         }
     }
 });
