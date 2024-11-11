@@ -7,7 +7,8 @@ const urlsToCache = [
     './style.css',
     './manifest.json',
     './icons/icon-192x192.svg',
-    './icons/icon-512x512.svg'
+    './icons/icon-512x512.svg',
+    './frame.html'
 ];
 
 // 添加消息处理
@@ -23,91 +24,25 @@ self.addEventListener('message', async event => {
 
     if (event.data && (event.data.type === 'NAVIGATE' || event.data.type === 'new-window')) {
         try {
-            // 获取目标页面内容
-            const response = await fetch(event.data.url);
-            const html = await response.text();
-
-            // 创建新的 HTML 内容
-            const newHTML = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>PWA View</title>
-                    <style>
-                        body, html { 
-                            margin: 0; 
-                            padding: 0; 
-                            height: 100vh; 
-                            overflow: auto; 
-                        }
-                        #pwa-content {
-                            width: 100%;
-                            min-height: 100vh;
-                        }
-                        /* 隐藏原页面的头部等元素 */
-                        header, nav, .header, .nav, .navbar { 
-                            display: none !important; 
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div id="pwa-content">
-                        ${html}
-                    </div>
-                    <script>
-                        // 处理页面内的链接点击
-                        document.addEventListener('click', (e) => {
-                            if (e.target.tagName === 'A') {
-                                e.preventDefault();
-                                const url = e.target.href;
-                                window.parent.postMessage({ type: 'NAVIGATE', url }, '*');
-                            }
-                        });
-
-                        // 隐藏地址栏
-                        if ('standalone' in navigator || window.matchMedia('(display-mode: standalone)').matches) {
-                            window.scrollTo(0, 1);
-                        }
-
-                        // 移除原页面的一些元素
-                        function removeElements() {
-                            const elementsToRemove = document.querySelectorAll('header, nav, .header, .nav, .navbar');
-                            elementsToRemove.forEach(el => el.remove());
-                        }
-                        
-                        // 页面加载完成后执行清理
-                        window.addEventListener('load', removeElements);
-                        // 动态内容加载后也执行清理
-                        const observer = new MutationObserver(removeElements);
-                        observer.observe(document.body, { childList: true, subtree: true });
-                    </script>
-                </body>
-                </html>
-            `;
-
-            // 创建 Blob URL
-            const blob = new Blob([newHTML], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
+            // 使用 frame.html 来加载外部页面
+            const frameUrl = `./frame.html?url=${encodeURIComponent(event.data.url)}`;
 
             if (event.data.type === 'NAVIGATE' && allClients.length > 0) {
-                // 在当前窗口导航
                 const client = allClients[0];
-                await client.navigate(blobUrl);
+                await client.navigate(frameUrl);
                 await client.focus();
             } else if (event.data.type === 'new-window') {
-                // 在新窗口打开
-                const windowClient = await self.clients.openWindow(blobUrl);
+                const windowClient = await self.clients.openWindow(frameUrl);
                 if (windowClient) {
                     await windowClient.focus();
                 }
             }
-
-            // 清理 Blob URL
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
         } catch (err) {
             console.error('操作失败:', err);
+            // 如果导航失败，尝试直接打开
+            if (event.data.type === 'new-window') {
+                await self.clients.openWindow(event.data.url);
+            }
         }
     }
 });
@@ -120,8 +55,48 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => response || fetch(event.request))
-    );
+    // 对于跨域请求，使用 no-cors 模式
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request)
+                .catch(() => caches.match('./index.html'))
+        );
+    } else {
+        event.respondWith(
+            caches.match(event.request)
+                .then(response => {
+                    if (response) {
+                        return response;
+                    }
+
+                    // 克隆请求，因为请求只能使用一次
+                    const fetchRequest = event.request.clone();
+
+                    // 对于跨域请求，添加 no-cors 模式
+                    const fetchOptions = {
+                        mode: 'no-cors',
+                        credentials: 'same-origin'
+                    };
+
+                    return fetch(fetchRequest, fetchOptions)
+                        .then(response => {
+                            // 检查是否是有效的响应
+                            if (!response || response.status !== 200) {
+                                return response;
+                            }
+
+                            // 克隆响应，因为响应体只能使用一次
+                            const responseToCache = response.clone();
+
+                            // 将响应添加到缓存
+                            caches.open(CACHE_NAME)
+                                .then(cache => {
+                                    cache.put(event.request, responseToCache);
+                                });
+
+                            return response;
+                        });
+                })
+        );
+    }
 }); 
