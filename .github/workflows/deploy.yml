@@ -6,61 +6,21 @@ on:
       - main
   workflow_dispatch:
 
-# 更新权限设置
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
-  deployments: write
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 添加调试信息
-      - name: Debug Info
-        run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Event: ${{ github.event_name }}"
-
-      # 配置 Git
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        with:
-          enablement: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          static_site_generator: "plain"
-
-      - name: Verify Files
-        run: |
-          echo "Checking files..."
-          ls -la
-          echo "Current directory structure:"
-          tree || true
-          test -f index.html || (echo "index.html not found" && exit 1)
-          test -f manifest.json || (echo "manifest.json not found" && exit 1)
-          test -f service-worker.js || (echo "service-worker.js not found" && exit 1)
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          folder: .
+          branch: gh-pages
+          clean: true
