@@ -30,50 +30,63 @@
             
             <button id="openNewBtn" class="open-new-button">
                 <span class="icon">🔗</span>
-                新窗口打开
+                打开百度
             </button>
-        </div>
-
-        <!-- iOS 安装提示 -->
-        <div id="iosInstallPrompt" class="install-prompt" style="display: none;">
-            <p>在 iOS 设备上安装：点击分享按钮，然后选择"添加到主屏幕"</p>
-        </div>
-
-        <!-- 安装方式说明 -->
-        <div class="install-methods">
-            <h2>安装方式说明</h2>
-            <div class="method-card">
-                <h3>📱 主屏幕安装</h3>
-                <p>将应用安装到设备主屏幕，像原生应用一样使用</p>
-            </div>
-            <div class="method-card">
-                <h3>🔗 新窗口模式</h3>
-                <p>在独立窗口中打开应用，获得更好的使用体验</p>
-            </div>
         </div>
     </div>
 
     <script>
         let deferredPrompt;
+        let serviceWorkerRegistration = null;
         const installBtn = document.getElementById('installBtn');
         const shareBtn = document.getElementById('shareBtn');
         const openNewBtn = document.getElementById('openNewBtn');
-        const iosPrompt = document.getElementById('iosInstallPrompt');
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                            window.navigator.standalone;
-
-        if (isIOS && !isStandalone) {
-            iosPrompt.style.display = 'block';
+        // Service Worker 注册
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(registration => {
+                    console.log('ServiceWorker 注册成功');
+                    serviceWorkerRegistration = registration;
+                    
+                    // 确保 Service Worker 激活
+                    if (registration.active) {
+                        console.log('Service Worker 已激活');
+                    } else {
+                        registration.addEventListener('activate', () => {
+                            console.log('Service Worker 已激活');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('ServiceWorker 注册失败:', error);
+                });
         }
+
+        // 监听 Service Worker 消息
+        navigator.serviceWorker.addEventListener('message', event => {
+            console.log('收到 Service Worker 消息:', event.data);
+            
+            if (!event.data || !event.data.type) return;
+
+            switch (event.data.type) {
+                case 'HANDLE_NAVIGATION':
+                    console.log('处理导航请求:', event.data.url);
+                    window.location.href = '?url=' + encodeURIComponent(event.data.url);
+                    break;
+
+                case 'NAVIGATION_ERROR':
+                    console.error('导航错误:', event.data.error);
+                    alert('导航失败: ' + event.data.error);
+                    break;
+            }
+        });
 
         // PWA 安装处理
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             installBtn.style.display = 'block';
-            console.log('beforeinstallprompt 触发');
         });
 
         installBtn.addEventListener('click', async () => {
@@ -86,139 +99,39 @@
             }
         });
 
-        // 修改刷新按钮的行为
+        // 刷新按钮处理
         shareBtn.addEventListener('click', () => {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                // 通过 Service Worker 打开新页面
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'new-window',
-                    url: 'https://www.baidu.com'
-                });
-            } else {
-                // 降级处理
-                //window.location.href = 'https://www.baidu.com';
-            }
+            window.location.reload();
         });
 
-        // 修改新窗口打开的方式
-        openNewBtn.addEventListener('click', () => {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                // 通过 Service Worker 打开新窗口
+        // 打开新页面处理
+        openNewBtn.addEventListener('click', async () => {
+            console.log('点击打开按钮');
+            
+            if (!navigator.serviceWorker.controller) {
+                console.log('Service Worker 未控制页面，等待激活...');
+                // 等待 Service Worker 激活
+                if (serviceWorkerRegistration) {
+                    await serviceWorkerRegistration.active;
+                }
+            }
+
+            if (navigator.serviceWorker.controller) {
+                console.log('发送导航消息到 Service Worker');
                 navigator.serviceWorker.controller.postMessage({
                     type: 'NAVIGATE',
                     url: 'https://www.baidu.com'
                 });
             } else {
-                // 降级处理，使用原来的窗口打开方式
-                const windowFeatures = {
-                    width: 800,
-                    height: 600,
-                    resizable: 'yes',
-                    scrollbars: 'yes',
-                    status: 'no',
-                    toolbar: 'no',
-                    menubar: 'no',
-                    location: 'no',
-                    titlebar: 'no'
-                };
-
-                const featuresStr = Object.entries(windowFeatures)
-                    .map(([key, value]) => `${key}=${value}`)
-                    .join(',');
-
-                //window.open('https://www.baidu.com', '_blank', featuresStr);
+                console.log('降级处理：直接导航');
+                window.location.href = '?url=' + encodeURIComponent('https://www.baidu.com');
             }
         });
 
-        // 检测是否在 PWA 模式下运行
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-                     (window.navigator.standalone) || 
-                     document.referrer.includes('android-app://');
-
-        // 如果是 PWA 模式，修改当前窗口的样式
-        if (isPWA) {
-            document.documentElement.style.background = '#ffffff';
-            document.body.style.margin = '0';
-            document.body.style.height = '100vh';
-            
-            // 隐藏地址栏
-            if ('standalone' in navigator) {
-                window.scrollTo(0, 1);
-            }
+        // 检查是否已经在 PWA 环境中
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('当前在 PWA 环境中运行');
         }
-
-        // 监听显示模式变化
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-            if (e.matches) {
-                installBtn.style.display = 'none';
-                iosPrompt.style.display = 'none';
-            }
-        });
-
-        window.addEventListener('appinstalled', (evt) => {
-            console.log('应用已成功安装');
-            installBtn.style.display = 'none';
-            iosPrompt.style.display = 'none';
-        });
-
-        // 确保 Service Worker 已激活
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js')
-                .then(registration => {
-                    console.log('ServiceWorker 注册成功');
-                    
-                    // 如果 Service Worker 未激活，等待其激活
-                    if (registration.active) {
-                        console.log('Service Worker 已激活');
-                    } else {
-                        registration.addEventListener('activate', () => {
-                            console.log('Service Worker 已激活');
-                        });
-                    }
-                })
-                .catch(error => console.log('ServiceWorker 注册失败:', error));
-        }
-
-        // 修改消息处理函数
-        navigator.serviceWorker.addEventListener('message', event => {
-            if (event.data && event.data.type === 'HANDLE_NAVIGATION') {
-                const { url, openType } = event.data;
-                const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
-
-                try {
-                    if (openType === 'NAVIGATE') {
-                        window.location.href = frameUrl;
-                    } else if (openType === 'new-window') {
-                        const windowFeatures = {
-                            width: 800,
-                            height: 600,
-                            resizable: 'yes',
-                            scrollbars: 'yes',
-                            status: 'no',
-                            toolbar: 'no',
-                            menubar: 'no',
-                            location: 'no',
-                            titlebar: 'no'
-                        };
-
-                        const featuresStr = Object.entries(windowFeatures)
-                            .map(([key, value]) => `${key}=${value}`)
-                            .join(',');
-
-                        const newWindow = window.open(frameUrl, '_blank', featuresStr);
-                        if (!newWindow) {
-                            console.warn('弹窗被阻止');
-                            // 降级为当前窗口打开
-                            window.location.href = frameUrl;
-                        }
-                    }
-                } catch (err) {
-                    console.error('导航失败:', err);
-                    // 降级处理
-                    window.location.href = url;
-                }
-            }
-        });
     </script>
 </body>
 </html> 
