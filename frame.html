@@ -107,6 +107,8 @@
         const params = new URLSearchParams(window.location.search);
         const url = params.get('url');
 
+        console.log(url);
+
         if (url) {
             loadContent(url);
         } else {

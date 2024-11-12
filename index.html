@@ -102,11 +102,14 @@
 
         // 修改新窗口打开的方式
         openNewBtn.addEventListener('click', () => {
+            console.log('openNewBtn 触发');
+            const url = 'https://www.baidu.com';
+            const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 // 通过 Service Worker 打开新窗口
                 navigator.serviceWorker.controller.postMessage({
                     type: 'NAVIGATE',
-                    url: 'https://www.baidu.com'
+                    url: url
                 });
             } else {
                 // 降级处理，使用原来的窗口打开方式

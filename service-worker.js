@@ -107,10 +107,6 @@ async function handleNavigationRequest(request) {
                     </style>
                 </head>
                 <body>
-                    <div class="toolbar">
-                        <button onclick="history.back()">返回</button>
-                        <button onclick="location.href='/'">首页</button>
-                    </div>
                     <div class="content">
                         <iframe src="${targetUrl}" 
                                 style="width: 100%; height: 100%; border: none;"
