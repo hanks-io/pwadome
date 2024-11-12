@@ -1,29 +1,26 @@
 const CACHE_NAME = 'pwa-demo-v1';
 const BASE_PATH = '';
-
-// 添加本地开发服务器地址
-const DEV_SERVERS = [
-    'http://192.168.1.18:4000',
-    'http://localhost:4000',
-    'http://127.0.0.1:4000'
+// 多个代理服务，如果一个失败可以尝试其他的
+const CORS_PROXIES = [
+    'https://api.allorigins.win/raw?url=',
+    'https://cors-anywhere.herokuapp.com/',
+    'https://cors.bridged.cc/'
 ];
 
-// 检查是否是本地开发环境
-function isDevEnvironment(url) {
-    return DEV_SERVERS.some(server => url.startsWith(server));
-}
+const urlsToCache = [
+    './',
+    './index.html',
+    './style.css',
+    './manifest.json',
+    './icons/icon-192x192.svg',
+    './icons/icon-512x512.svg'
+];
 
-// 获取内容的函数
-async function fetchContent(url) {
-    // 如果是本地开发环境，直接获取
-    if (isDevEnvironment(url)) {
-        return fetch(url, {
-            mode: 'cors',
-            credentials: 'include'
-        });
-    }
-
-    // 对外部网站使用 no-cors 模式
+// 尝试使用不同的代理获取内容
+async function fetchWithProxy(url) {
+    const errors = [];
+    
+    // 首先尝试直接获取（使用 no-cors 模式）
     try {
         const response = await fetch(url, {
             mode: 'no-cors',
@@ -32,19 +29,42 @@ async function fetchContent(url) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
-        return response;
+        if (response.type !== 'opaque') {
+            return response;
+        }
     } catch (error) {
-        console.error('Fetch failed:', error);
-        throw error;
+        errors.push(`Direct fetch failed: ${error.message}`);
     }
+
+    // 依次尝试每个代理
+    for (const proxy of CORS_PROXIES) {
+        try {
+            const proxyUrl = proxy + encodeURIComponent(url);
+            const response = await fetch(proxyUrl, {
+                headers: {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+            if (response.ok) {
+                return response;
+            }
+        } catch (error) {
+            errors.push(`Proxy ${proxy} failed: ${error.message}`);
+        }
+    }
+
+    // 如果所有尝试都失败，抛出错误
+    throw new Error(`All fetch attempts failed: ${errors.join('; ')}`);
 }
 
 // 请求拦截
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-    
+    console.log('请求URL:', url);
     // 检查是否是导航请求
     if (event.request.mode === 'navigate') {
+        console.log('event',event);
         event.respondWith(
             (async () => {
                 try {
@@ -52,59 +72,52 @@ self.addEventListener('fetch', event => {
                     const targetUrl = params.get('url');
 
                     if (targetUrl) {
-                        const response = await fetchContent(targetUrl);
-                        
-                        // 创建错误页面的 HTML
-                        const errorHTML = `
+                        // 使用代理获取内容
+                        const response = await fetchWithProxy(targetUrl);
+                        const content = await response.text();
+
+                        // 创建新的响应
+                        const modifiedContent = `
                             <!DOCTYPE html>
                             <html>
                             <head>
                                 <meta charset="UTF-8">
                                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                <title>加载失败</title>
+                                <title>PWA View</title>
                                 <style>
-                                    .error-container {
-                                        position: fixed;
-                                        top: 50%;
-                                        left: 50%;
+                                    body, html { margin: 0; padding: 0; height: 100vh; }
+                                    #content { height: 100%; }
+                                    .error { 
+                                        position: fixed; 
+                                        top: 50%; 
+                                        left: 50%; 
                                         transform: translate(-50%, -50%);
-                                        text-align: center;
                                         padding: 20px;
-                                        background: white;
+                                        background: #fff;
                                         border-radius: 8px;
                                         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                                    }
-                                    .error-container button {
-                                        margin-top: 10px;
-                                        padding: 8px 16px;
-                                        background: #4A90E2;
-                                        color: white;
-                                        border: none;
-                                        border-radius: 4px;
-                                        cursor: pointer;
                                     }
                                 </style>
                             </head>
                             <body>
-                                <div class="error-container">
-                                    <h3>加载失败</h3>
-                                    <p>无法加载目标页面，请检查网络连接后重试。</p>
-                                    <button onclick="window.location.href='./'">返回首页</button>
-                                    <button onclick="window.location.reload()">重试</button>
-                                </div>
+                                <div id="content">${content}</div>
+                                <script>
+                                    // 处理链接点击
+                                    document.addEventListener('click', (e) => {
+                                        if (e.target.tagName === 'A') {
+                                            e.preventDefault();
+                                            const url = e.target.href;
+                                            if (url) {
+                                                location.href = '?url=' + encodeURIComponent(url);
+                                            }
+                                        }
+                                    });
+                                </script>
                             </body>
                             </html>
                         `;
 
-                        // 如果响应不成功，返回错误页面
-                        if (!response || response.type === 'error' || !response.ok) {
-                            return new Response(errorHTML, {
-                                headers: { 'Content-Type': 'text/html' }
-                            });
-                        }
-
-                        const content = await response.text();
-                        return new Response(content, {
+                        return new Response(modifiedContent, {
                             headers: {
                                 'Content-Type': 'text/html',
                                 'X-Content-Type-Options': 'nosniff'
@@ -112,12 +125,20 @@ self.addEventListener('fetch', event => {
                         });
                     }
 
-                    // 如果没有目标 URL，返回原始请求
                     return fetch(event.request);
                 } catch (error) {
-                    console.error('Navigation failed:', error);
+                    console.error('Fetch failed:', error);
                     // 返回错误页面
-                    return new Response(errorHTML, {
+                    return new Response(`
+                        <html>
+                            <body>
+                                <div class="error">
+                                    加载失败，请稍后重试...<br>
+                                    <button onclick="location.href='./'">返回首页</button>
+                                </div>
+                            </body>
+                        </html>
+                    `, {
                         headers: { 'Content-Type': 'text/html' }
                     });
                 }
@@ -132,7 +153,21 @@ self.addEventListener('fetch', event => {
     }
 });
 
-// 消息处理
+// 安装事件
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(urlsToCache))
+    );
+    self.skipWaiting();
+});
+
+// 激活事件
+self.addEventListener('activate', event => {
+    event.waitUntil(self.clients.claim());
+});
+
+// 添加消息处理
 self.addEventListener('message', async event => {
     console.log('Service Worker 收到消息:', event.data);
     
@@ -150,6 +185,7 @@ self.addEventListener('message', async event => {
                 const url = event.data.url;
                 console.log('准备导航到:', url);
                 
+                // 通知客户端进行导航
                 client.postMessage({
                     type: 'HANDLE_NAVIGATION',
                     url: url
@@ -162,15 +198,8 @@ self.addEventListener('message', async event => {
                 });
             }
             break;
+
+        default:
+            console.log('未知消息类型:', event.data.type);
     }
-});
-
-// 安装事件
-self.addEventListener('install', event => {
-    self.skipWaiting();
-});
-
-// 激活事件
-self.addEventListener('activate', event => {
-    event.waitUntil(self.clients.claim());
 }); 
