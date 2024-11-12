@@ -107,6 +107,7 @@ async function handleNavigationRequest(request) {
                     </style>
                 </head>
                 <body>
+                
                     <div class="content">
                         <iframe src="${targetUrl}" 
                                 style="width: 100%; height: 100%; border: none;"

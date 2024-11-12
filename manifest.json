@@ -1,7 +1,7 @@
 {
     "name": "PWA Demo",
     "short_name": "PWADemo",
-    "start_url": "./frame.html?url=https://pwa.qu6.xyz",
+    "start_url": "./frame.html",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",

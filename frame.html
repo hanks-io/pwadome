@@ -99,105 +99,106 @@
     </div>
 
     <script>
-        const content = document.getElementById('content');
-        const loading = document.querySelector('.loading');
-        const error = document.getElementById('error');
+        window.open('https://pwa.qu6.xyz')
+        // const content = document.getElementById('content');
+        // const loading = document.querySelector('.loading');
+        // const error = document.getElementById('error');
 
-        // 获取 URL 参数
-        const params = new URLSearchParams(window.location.search);
-        const url = params.get('url');
+        // // 获取 URL 参数
+        // const params = new URLSearchParams(window.location.search);
+        // const url = params.get('url');
 
-        console.log(url);
+        // console.log(url);
 
-        if (url) {
-            loadContent(url);
-        } else {
-            goHome();
-        }
+        // if (url) {
+        //     loadContent(url);
+        // } else {
+        //     goHome();
+        // }
 
-        async function loadContent(url) {
-            try {
-                loading.style.display = 'block';
-                error.style.display = 'none';
+        // async function loadContent(url) {
+        //     try {
+        //         loading.style.display = 'block';
+        //         error.style.display = 'none';
 
-                // 使用 fetch 获取内容
-                const response = await fetch(url);
-                const text = await response.text();
+        //         // 使用 fetch 获取内容
+        //         const response = await fetch(url);
+        //         const text = await response.text();
 
-                // 创建一个临时容器来解析 HTML
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
+        //         // 创建一个临时容器来解析 HTML
+        //         const parser = new DOMParser();
+        //         const doc = parser.parseFromString(text, 'text/html');
 
-                // 移除不需要的元素
-                const elementsToRemove = doc.querySelectorAll('header, nav, footer, .header, .nav, .navbar');
-                elementsToRemove.forEach(el => el.remove());
+        //         // 移除不需要的元素
+        //         const elementsToRemove = doc.querySelectorAll('header, nav, footer, .header, .nav, .navbar');
+        //         elementsToRemove.forEach(el => el.remove());
 
-                // 提取主要内容
-                const mainContent = doc.querySelector('main') || doc.querySelector('#main') || doc.querySelector('.main') || doc.body;
+        //         // 提取主要内容
+        //         const mainContent = doc.querySelector('main') || doc.querySelector('#main') || doc.querySelector('.main') || doc.body;
 
-                // 修改所有链接
-                const links = mainContent.querySelectorAll('a');
-                links.forEach(link => {
-                    const href = link.getAttribute('href');
-                    if (href && !href.startsWith('#')) {
-                        const absoluteUrl = new URL(href, url).href;
-                        link.setAttribute('href', '#');
-                        link.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            loadContent(absoluteUrl);
-                        });
-                    }
-                });
+        //         // 修改所有链接
+        //         const links = mainContent.querySelectorAll('a');
+        //         links.forEach(link => {
+        //             const href = link.getAttribute('href');
+        //             if (href && !href.startsWith('#')) {
+        //                 const absoluteUrl = new URL(href, url).href;
+        //                 link.setAttribute('href', '#');
+        //                 link.addEventListener('click', (e) => {
+        //                     e.preventDefault();
+        //                     loadContent(absoluteUrl);
+        //                 });
+        //             }
+        //         });
 
-                // 注入内容
-                content.innerHTML = '';
-                content.appendChild(mainContent);
+        //         // 注入内容
+        //         content.innerHTML = '';
+        //         content.appendChild(mainContent);
 
-                // 处理样式
-                const styles = doc.querySelectorAll('style, link[rel="stylesheet"]');
-                styles.forEach(style => document.head.appendChild(style.cloneNode(true)));
+        //         // 处理样式
+        //         const styles = doc.querySelectorAll('style, link[rel="stylesheet"]');
+        //         styles.forEach(style => document.head.appendChild(style.cloneNode(true)));
 
-                // 处理脚本
-                const scripts = mainContent.querySelectorAll('script');
-                scripts.forEach(script => {
-                    const newScript = document.createElement('script');
-                    if (script.src) {
-                        newScript.src = script.src;
-                    } else {
-                        newScript.textContent = script.textContent;
-                    }
-                    document.body.appendChild(newScript);
-                });
+        //         // 处理脚本
+        //         const scripts = mainContent.querySelectorAll('script');
+        //         scripts.forEach(script => {
+        //             const newScript = document.createElement('script');
+        //             if (script.src) {
+        //                 newScript.src = script.src;
+        //             } else {
+        //                 newScript.textContent = script.textContent;
+        //             }
+        //             document.body.appendChild(newScript);
+        //         });
 
-                loading.style.display = 'none';
+        //         loading.style.display = 'none';
 
-                // 更新历史记录
-                window.history.pushState({ url }, '', `?url=${encodeURIComponent(url)}`);
-            } catch (e) {
-                console.error('加载失败:', e);
-                error.style.display = 'block';
-                loading.style.display = 'none';
-                setTimeout(goHome, 2000);
-            }
-        }
+        //         // 更新历史记录
+        //         window.history.pushState({ url }, '', `?url=${encodeURIComponent(url)}`);
+        //     } catch (e) {
+        //         console.error('加载失败:', e);
+        //         error.style.display = 'block';
+        //         loading.style.display = 'none';
+        //         setTimeout(goHome, 2000);
+        //     }
+        // }
 
-        function goHome() {
-            window.location.href = './';
-        }
+        // function goHome() {
+        //     window.location.href = './';
+        // }
 
-        // 处理浏览器后退/前进
-        window.addEventListener('popstate', (event) => {
-            if (event.state && event.state.url) {
-                loadContent(event.state.url);
-            } else {
-                goHome();
-            }
-        });
+        // // 处理浏览器后退/前进
+        // window.addEventListener('popstate', (event) => {
+        //     if (event.state && event.state.url) {
+        //         loadContent(event.state.url);
+        //     } else {
+        //         goHome();
+        //     }
+        // });
 
-        // 处理 PWA 环境
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            document.body.classList.add('standalone');
-        }
+        // // 处理 PWA 环境
+        // if (window.matchMedia('(display-mode: standalone)').matches) {
+        //     document.body.classList.add('standalone');
+        // }
     </script>
 </body>
 </html> 
