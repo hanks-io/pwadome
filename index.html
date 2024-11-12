@@ -16,50 +16,53 @@
         <h1>PWA 示例</h1>
         <p>这是一个简单的 PWA 应用演示</p>
         
-        <!-- 安装按钮组 -->
         <div class="button-group">
             <button id="installBtn" class="install-button" style="display: none;">
                 <span class="icon">📱</span>
                 安装到主屏幕
             </button>
             
-            <button id="shareBtn" class="share-button">
+            <button id="openUrlBtn" class="open-button">
+                <span class="icon">🌐</span>
+                打开网页
+            </button>
+            
+            <button id="reloadBtn" class="reload-button">
                 <span class="icon">🔄</span>
                 刷新页面
             </button>
-            
-            <button id="openNewBtn" class="open-new-button">
-                <span class="icon">🔗</span>
-                打开百度
-            </button>
         </div>
+
+        <div id="status" class="status-message" style="display: none;"></div>
     </div>
 
     <script>
         let deferredPrompt;
-        let serviceWorkerRegistration = null;
         const installBtn = document.getElementById('installBtn');
-        const shareBtn = document.getElementById('shareBtn');
-        const openNewBtn = document.getElementById('openNewBtn');
+        const openUrlBtn = document.getElementById('openUrlBtn');
+        const reloadBtn = document.getElementById('reloadBtn');
+        const status = document.getElementById('status');
+
+        // 显示状态消息
+        function showStatus(message, isError = false) {
+            status.textContent = message;
+            status.style.display = 'block';
+            status.className = `status-message ${isError ? 'error' : 'success'}`;
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
 
         // Service Worker 注册
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js')
                 .then(registration => {
                     console.log('ServiceWorker 注册成功');
-                    serviceWorkerRegistration = registration;
-                    
-                    // 确保 Service Worker 激活
-                    if (registration.active) {
-                        console.log('Service Worker 已激活');
-                    } else {
-                        registration.addEventListener('activate', () => {
-                            console.log('Service Worker 已激活');
-                        });
-                    }
+                    showStatus('Service Worker 已准备就绪');
                 })
                 .catch(error => {
                     console.error('ServiceWorker 注册失败:', error);
+                    showStatus('Service Worker 注册失败', true);
                 });
         }
 
@@ -67,18 +70,12 @@
         navigator.serviceWorker.addEventListener('message', event => {
             console.log('收到 Service Worker 消息:', event.data);
             
-            if (!event.data || !event.data.type) return;
-
-            switch (event.data.type) {
-                case 'HANDLE_NAVIGATION':
-                    console.log('处理导航请求:', event.data.url);
-                    window.location.href = '?url=' + encodeURIComponent(event.data.url);
-                    break;
-
-                case 'NAVIGATION_ERROR':
-                    console.error('导航错误:', event.data.error);
-                    alert('导航失败: ' + event.data.error);
-                    break;
+            if (event.data.type === 'NAVIGATION_RESULT') {
+                if (event.data.success) {
+                    showStatus('页面加载成功');
+                } else {
+                    showStatus('页面加载失败: ' + event.data.error, true);
+                }
             }
         });
 
@@ -99,38 +96,29 @@
             }
         });
 
+        // 打开网页按钮处理
+        openUrlBtn.addEventListener('click', () => {
+            const url = prompt('请输入要访问的网址:', 'https://www.baidu.com');
+            if (url) {
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'NAVIGATE',
+                        url: url
+                    });
+                } else {
+                    showStatus('Service Worker 未就绪', true);
+                }
+            }
+        });
+
         // 刷新按钮处理
-        shareBtn.addEventListener('click', () => {
+        reloadBtn.addEventListener('click', () => {
             window.location.reload();
         });
 
-        // 打开新页面处理
-        openNewBtn.addEventListener('click', async () => {
-            console.log('点击打开按钮');
-            
-            if (!navigator.serviceWorker.controller) {
-                console.log('Service Worker 未控制页面，等待激活...');
-                // 等待 Service Worker 激活
-                if (serviceWorkerRegistration) {
-                    await serviceWorkerRegistration.active;
-                }
-            }
-
-            if (navigator.serviceWorker.controller) {
-                console.log('发送导航消息到 Service Worker');
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'NAVIGATE',
-                    url: 'https://pwa.qu6.xyz'
-                });
-            } else {
-                console.log('降级处理：直接导航');
-                window.location.href = '?url=' + encodeURIComponent('https://www.baidu.com');
-            }
-        });
-
-        // 检查是否已经在 PWA 环境中
+        // 检查是否在 PWA 模式
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('当前在 PWA 环境中运行');
+            showStatus('PWA 模式运行中');
         }
     </script>
 </body>

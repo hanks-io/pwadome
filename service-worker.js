@@ -169,4 +169,47 @@ self.addEventListener('install', event => {
 // 激活事件
 self.addEventListener('activate', event => {
     event.waitUntil(self.clients.claim());
+});
+
+// 消息处理
+self.addEventListener('message', async event => {
+    console.log('Service Worker 收到消息:', event.data);
+    
+    if (!event.data || !event.data.type) return;
+
+    const client = event.source;
+    if (!client) {
+        console.error('无法找到发送消息的客户端');
+        return;
+    }
+
+    switch (event.data.type) {
+        case 'NAVIGATE':
+            try {
+                const url = event.data.url;
+                console.log('准备导航到:', url);
+                
+                // 尝试获取内容
+                const response = await fetchContent(url);
+                if (response && (response.ok || response.type === 'opaque')) {
+                    // 通知客户端进行导航
+                    client.postMessage({
+                        type: 'NAVIGATION_RESULT',
+                        success: true
+                    });
+                    // 执行导航
+                    client.navigate('?url=' + encodeURIComponent(url));
+                } else {
+                    throw new Error('无法加载页面');
+                }
+            } catch (error) {
+                console.error('导航处理失败:', error);
+                client.postMessage({
+                    type: 'NAVIGATION_RESULT',
+                    success: false,
+                    error: error.message
+                });
+            }
+            break;
+    }
 }); 
