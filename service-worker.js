@@ -61,9 +61,10 @@ async function fetchWithProxy(url) {
 // 请求拦截
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-    
+    console.log('请求URL:', url);
     // 检查是否是导航请求
     if (event.request.mode === 'navigate') {
+        console.log('event',event);
         event.respondWith(
             (async () => {
                 try {
