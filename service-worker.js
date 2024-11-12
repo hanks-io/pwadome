@@ -2,57 +2,100 @@ const CACHE_NAME = 'pwa-demo-v1';
 const BASE_PATH = '';
 
 // 获取内容的函数
-async function fetchContent(url, type = 'document') {
+async function fetchContent(url) {
     try {
-        // 对于文档类型使用 no-cors
-        if (type === 'document') {
-            return await fetch(url, {
-                mode: 'no-cors',
-                credentials: 'omit',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
-        }
-        // 对于资源文件使用普通请求
-        return await fetch(url);
+        const response = await fetch(url, {
+            mode: 'no-cors',
+            credentials: 'omit',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        return response;
     } catch (error) {
         console.error('Fetch failed:', error);
         throw error;
     }
 }
 
-// 修改资源路径为绝对路径
-function makeUrlsAbsolute(content, baseUrl) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(content, 'text/html');
-    const base = new URL(baseUrl);
+// 创建包装页面
+function createWrappedPage(content, baseUrl) {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>PWA View</title>
+            <style>
+                body, html {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100vh;
+                    overflow: auto;
+                }
+                #pwa-toolbar {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 44px;
+                    background: #f8f9fa;
+                    display: flex;
+                    align-items: center;
+                    padding: 0 10px;
+                    gap: 10px;
+                    z-index: 1000;
+                    border-bottom: 1px solid #dee2e6;
+                }
+                #pwa-toolbar button {
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 4px;
+                    background: #4A90E2;
+                    color: white;
+                    cursor: pointer;
+                }
+                #pwa-content {
+                    margin-top: 44px;
+                    min-height: calc(100vh - 44px);
+                }
+                @media (display-mode: standalone) {
+                    #pwa-toolbar { padding-top: env(safe-area-inset-top); }
+                }
+            </style>
+            <base href="${baseUrl}">
+        </head>
+        <body>
+            <div id="pwa-toolbar">
+                <button onclick="history.back()">返回</button>
+                <button onclick="location.href='./'">首页</button>
+            </div>
+            <div id="pwa-content">
+                ${content}
+            </div>
+            <script>
+                // 处理所有链接点击
+                document.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'A') {
+                        e.preventDefault();
+                        const url = e.target.href;
+                        if (url) {
+                            location.href = '?url=' + encodeURIComponent(url);
+                        }
+                    }
+                });
 
-    // 处理 CSS 链接
-    doc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-        if (link.href) {
-            link.href = new URL(link.getAttribute('href'), base).href;
-        }
-    });
-
-    // 处理脚本
-    doc.querySelectorAll('script[src]').forEach(script => {
-        script.src = new URL(script.getAttribute('src'), base).href;
-    });
-
-    // 处理图片
-    doc.querySelectorAll('img[src]').forEach(img => {
-        img.src = new URL(img.getAttribute('src'), base).href;
-    });
-
-    // 处理其他资源
-    doc.querySelectorAll('[href]').forEach(el => {
-        if (el.href && !el.href.startsWith('#')) {
-            el.href = new URL(el.getAttribute('href'), base).href;
-        }
-    });
-
-    return doc.documentElement.outerHTML;
+                // 错误处理
+                window.onerror = function(msg, url, line, col, error) {
+                    console.log('捕获到错误:', msg);
+                    return true;
+                };
+            </script>
+        </body>
+        </html>
+    `;
 }
 
 // 请求拦截
@@ -69,15 +112,14 @@ self.addEventListener('fetch', event => {
                     if (targetUrl) {
                         const response = await fetchContent(targetUrl);
                         
-                        if (!response || response.type === 'error' || !response.ok) {
+                        if (!response || response.type === 'error') {
                             throw new Error('Failed to fetch content');
                         }
 
                         const content = await response.text();
-                        // 转换所有资源路径为绝对路径
-                        const modifiedContent = makeUrlsAbsolute(content, targetUrl);
+                        const wrappedContent = createWrappedPage(content, targetUrl);
 
-                        return new Response(modifiedContent, {
+                        return new Response(wrappedContent, {
                             headers: {
                                 'Content-Type': 'text/html',
                                 'X-Content-Type-Options': 'nosniff'
@@ -88,87 +130,25 @@ self.addEventListener('fetch', event => {
                     return fetch(event.request);
                 } catch (error) {
                     console.error('Navigation failed:', error);
-                    return new Response(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <title>加载失败</title>
-                            <style>
-                                .error-container {
-                                    position: fixed;
-                                    top: 50%;
-                                    left: 50%;
-                                    transform: translate(-50%, -50%);
-                                    text-align: center;
-                                    padding: 20px;
-                                    background: white;
-                                    border-radius: 8px;
-                                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                                }
-                                button {
-                                    margin: 10px;
-                                    padding: 8px 16px;
-                                    background: #4A90E2;
-                                    color: white;
-                                    border: none;
-                                    border-radius: 4px;
-                                    cursor: pointer;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="error-container">
-                                <h3>加载失败</h3>
-                                <p>无法加载页面，请稍后重试</p>
-                                <button onclick="window.location.href='./'">返回首页</button>
-                                <button onclick="window.location.reload()">重试</button>
-                            </div>
-                        </body>
-                        </html>
-                    `, {
+                    return new Response(createWrappedPage(`
+                        <div style="text-align: center; padding: 20px;">
+                            <h3>加载失败</h3>
+                            <p>无法加载页面，请稍后重试</p>
+                            <button onclick="location.href='./'">返回首页</button>
+                            <button onclick="location.reload()">重试</button>
+                        </div>
+                    `, ''), {
                         headers: { 'Content-Type': 'text/html' }
                     });
                 }
             })()
         );
     } else {
-        // 处理其他资源请求
         event.respondWith(
-            (async () => {
-                try {
-                    // 先尝试从缓存获取
-                    const cachedResponse = await caches.match(event.request);
-                    if (cachedResponse) {
-                        return cachedResponse;
-                    }
-
-                    // 如果没有缓存，则获取资源
-                    const response = await fetchContent(event.request.url, 'resource');
-                    
-                    // 缓存响应
-                    const cache = await caches.open(CACHE_NAME);
-                    cache.put(event.request, response.clone());
-
-                    return response;
-                } catch (error) {
-                    console.error('Resource fetch failed:', error);
-                    return new Response('', { status: 404 });
-                }
-            })()
+            caches.match(event.request)
+                .then(response => response || fetch(event.request))
         );
     }
-});
-
-// 安装事件
-self.addEventListener('install', event => {
-    self.skipWaiting();
-});
-
-// 激活事件
-self.addEventListener('activate', event => {
-    event.waitUntil(self.clients.claim());
 });
 
 // 消息处理
@@ -189,19 +169,14 @@ self.addEventListener('message', async event => {
                 const url = event.data.url;
                 console.log('准备导航到:', url);
                 
-                // 尝试获取内容
-                const response = await fetchContent(url);
-                if (response && (response.ok || response.type === 'opaque')) {
-                    // 通知客户端进行导航
-                    client.postMessage({
-                        type: 'NAVIGATION_RESULT',
-                        success: true
-                    });
-                    // 执行导航
-                    client.navigate('?url=' + encodeURIComponent(url));
-                } else {
-                    throw new Error('无法加载页面');
-                }
+                // 直接通知客户端进行导航
+                client.postMessage({
+                    type: 'NAVIGATION_RESULT',
+                    success: true
+                });
+
+                // 使用 navigate 方法进行导航
+                await client.navigate('?url=' + encodeURIComponent(url));
             } catch (error) {
                 console.error('导航处理失败:', error);
                 client.postMessage({
@@ -212,4 +187,14 @@ self.addEventListener('message', async event => {
             }
             break;
     }
+});
+
+// 安装事件
+self.addEventListener('install', event => {
+    self.skipWaiting();
+});
+
+// 激活事件
+self.addEventListener('activate', event => {
+    event.waitUntil(self.clients.claim());
 }); 
