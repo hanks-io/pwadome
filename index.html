@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Demo</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./style.css">
+    <meta name="theme-color" content="#4A90E2">
+    <link rel="apple-touch-icon" href="./icons/icon-192x192.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body>
+    <div class="container">
+        <h1>PWA 示例</h1>
+        <p>这是一个简单的 PWA 应用演示</p>
+        
+        <!-- 安装按钮组 -->
+        <div class="button-group">
+            <button id="installBtn" class="install-button" style="display: none;">
+                <span class="icon">📱</span>
+                安装到主屏幕
+            </button>
+            
+            <button id="shareBtn" class="share-button">
+                <span class="icon">🔄</span>
+                刷新页面
+            </button>
+            
+            <button id="openNewBtn" class="open-new-button">
+                <span class="icon">🔗</span>
+                新窗口打开
+            </button>
+        </div>
+
+        <!-- iOS 安装提示 -->
+        <div id="iosInstallPrompt" class="install-prompt" style="display: none;">
+            <p>在 iOS 设备上安装：点击分享按钮，然后选择"添加到主屏幕"</p>
+        </div>
+
+        <!-- 安装方式说明 -->
+        <div class="install-methods">
+            <h2>安装方式说明</h2>
+            <div class="method-card">
+                <h3>📱 主屏幕安装</h3>
+                <p>将应用安装到设备主屏幕，像原生应用一样使用</p>
+            </div>
+            <div class="method-card">
+                <h3>🔗 新窗口模式</h3>
+                <p>在独立窗口中打开应用，获得更好的使用体验</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const openNewBtn = document.getElementById('openNewBtn');
+        const iosPrompt = document.getElementById('iosInstallPrompt');
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                            window.navigator.standalone;
+
+        if (isIOS && !isStandalone) {
+            iosPrompt.style.display = 'block';
+        }
+
+        // PWA 安装处理
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+            console.log('beforeinstallprompt 触发');
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`用户选择: ${outcome}`);
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        });
+
+        // 修改刷新按钮的行为
+        shareBtn.addEventListener('click', () => {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                // 通过 Service Worker 打开新页面
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'new-window',
+                    url: 'https://www.baidu.com'
+                });
+            } else {
+                // 降级处理
+                //window.location.href = 'https://www.baidu.com';
+            }
+        });
+
+        // 修改新窗口打开的方式
+        openNewBtn.addEventListener('click', () => {
+            console.log('openNewBtn 触发');
+            const url = 'https://www.baidu.com';
+            const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                // 通过 Service Worker 打开新窗口
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'NAVIGATE',
+                    url: url
+                });
+            } else {
+                // 降级处理，使用原来的窗口打开方式
+                const windowFeatures = {
+                    width: 800,
+                    height: 600,
+                    resizable: 'yes',
+                    scrollbars: 'yes',
+                    status: 'no',
+                    toolbar: 'no',
+                    menubar: 'no',
+                    location: 'no',
+                    titlebar: 'no'
+                };
+
+                const featuresStr = Object.entries(windowFeatures)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join(',');
+
+                //window.open('https://www.baidu.com', '_blank', featuresStr);
+            }
+        });
+
+        // 检测是否在 PWA 模式下运行
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                     (window.navigator.standalone) || 
+                     document.referrer.includes('android-app://');
+
+        // 如果是 PWA 模式，修改当前窗口的样式
+        if (isPWA) {
+            document.documentElement.style.background = '#ffffff';
+            document.body.style.margin = '0';
+            document.body.style.height = '100vh';
+            
+            // 隐藏地址栏
+            if ('standalone' in navigator) {
+                window.scrollTo(0, 1);
+            }
+        }
+
+        // 监听显示模式变化
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+            if (e.matches) {
+                installBtn.style.display = 'none';
+                iosPrompt.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('应用已成功安装');
+            installBtn.style.display = 'none';
+            iosPrompt.style.display = 'none';
+        });
+
+        // 确保 Service Worker 已激活
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(registration => {
+                    console.log('ServiceWorker 注册成功');
+                    
+                    // 如果 Service Worker 未激活，等待其激活
+                    if (registration.active) {
+                        console.log('Service Worker 已激活');
+                    } else {
+                        registration.addEventListener('activate', () => {
+                            console.log('Service Worker 已激活');
+                        });
+                    }
+                })
+                .catch(error => console.log('ServiceWorker 注册失败:', error));
+        }
+
+        // 修改消息处理函数
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'HANDLE_NAVIGATION') {
+                const { url, openType } = event.data;
+                const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
+
+                try {
+                    if (openType === 'NAVIGATE') {
+                        window.location.href = frameUrl;
+                    } else if (openType === 'new-window') {
+                        const windowFeatures = {
+                            width: 800,
+                            height: 600,
+                            resizable: 'yes',
+                            scrollbars: 'yes',
+                            status: 'no',
+                            toolbar: 'no',
+                            menubar: 'no',
+                            location: 'no',
+                            titlebar: 'no'
+                        };
+
+                        const featuresStr = Object.entries(windowFeatures)
+                            .map(([key, value]) => `${key}=${value}`)
+                            .join(',');
+
+                        const newWindow = window.open(frameUrl, '_blank', featuresStr);
+                        if (!newWindow) {
+                            console.warn('弹窗被阻止');
+                            // 降级为当前窗口打开
+                            window.location.href = frameUrl;
+                        }
+                    }
+                } catch (err) {
+                    console.error('导航失败:', err);
+                    // 降级处理
+                    window.location.href = url;
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
