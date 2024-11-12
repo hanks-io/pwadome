@@ -120,7 +120,7 @@
                 console.log('发送导航消息到 Service Worker');
                 navigator.serviceWorker.controller.postMessage({
                     type: 'NAVIGATE',
-                    url: 'https://www.youtube.com'
+                    url: 'http://192.168.1.18:4000'
                 });
             } else {
                 console.log('降级处理：直接导航');
