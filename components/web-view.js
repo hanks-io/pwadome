@@ -11,9 +11,6 @@ export class WebView {
             this.container.innerHTML = '<div class="loading">加载中...</div>';
             const response = await fetch(`/proxy?url=${encodeURIComponent(url)}`);
             
-
-            return;
-            
             if (!response.ok) {
                 throw new Error('Failed to load content');
             }
