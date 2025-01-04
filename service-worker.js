@@ -43,7 +43,7 @@ self.addEventListener('fetch', event => {
 
     // 处理导航请求
     if (event.request.mode === 'navigate') {
-        event.respondWith(handleNavigationRequest(event.request));
+        //event.respondWith(handleNavigationRequest(event.request));
         return;
     }
 
