@@ -102,35 +102,7 @@
 
         // 修改新窗口打开的方式
         openNewBtn.addEventListener('click', () => {
-            console.log('openNewBtn 触发');
-            const url = 'https://www.baidu.com';
-            const frameUrl = `./frame.html?url=${encodeURIComponent(url)}`;
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                // 通过 Service Worker 打开新窗口
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'NAVIGATE',
-                    url: url
-                });
-            } else {
-                // 降级处理，使用原来的窗口打开方式
-                const windowFeatures = {
-                    width: 800,
-                    height: 600,
-                    resizable: 'yes',
-                    scrollbars: 'yes',
-                    status: 'no',
-                    toolbar: 'no',
-                    menubar: 'no',
-                    location: 'no',
-                    titlebar: 'no'
-                };
-
-                const featuresStr = Object.entries(windowFeatures)
-                    .map(([key, value]) => `${key}=${value}`)
-                    .join(',');
-
-                //window.open('https://www.baidu.com', '_blank', featuresStr);
-            }
+            window.location.href = 'intent://yo.qu6.xyz#Intent;scheme=https;package=com.android.chrome;end';
         });
 
         // 检测是否在 PWA 模式下运行
